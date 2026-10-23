@@ -97,14 +97,10 @@ def choose_date():
         print("输入有误，请重新输入。")
 
 
-def main():
-    if not confirm_enter():
-        print("已退出。")
-        return
-
+def book_room(mode, log_fn=log):
+    """执行预约。mode 为 'tomorrow'（等到 22:00 抢明天）或 'today'（立即抢今天）。"""
     cfg = load_config()
     token, exp = load_token()
-    mode = choose_date()
 
     now = datetime.now()
     target = now.replace(hour=OPEN_HOUR, minute=0, second=0, microsecond=0)
@@ -113,10 +109,10 @@ def main():
 
     # token 检查
     if exp < time.time():
-        raise Fatal("token 已过期（有效期仅 2 小时），请重新运行 login.exe 或者 get_token.py 并登录。")
+        raise Fatal("token 已过期（有效期仅 2 小时），请重新登录。")
     if need_wait and exp < target.timestamp() + 60:
-        raise Fatal("token 会在 22:00 之前过期，请在 21:30 之后重新运行“获取token”。")
-    log(f"token 剩余有效时间：{int(exp - time.time()) // 60} 分钟")
+        raise Fatal("token 会在 22:00 之前过期，请在 21:30 之后重新登录。")
+    log_fn(f"token 剩余有效时间：{int(exp - time.time()) // 60} 分钟")
 
     session = requests.Session()
     session.headers.update({
@@ -141,12 +137,12 @@ def main():
         raise Fatal(f"无法连接图书馆系统，请确认已连接校园网：{e}")
     if not d.get("status"):
         raise Fatal(f"预检失败（token 可能无效，或房间号有误）：{d.get('message')}")
-    log(f"预检通过，房间：{d['data'].get('name')}")
-    log(f"目标：{on_date}  {cfg['begin']} - {cfg['end']}")
+    log_fn(f"预检通过，房间：{d['data'].get('name')}")
+    log_fn(f"目标：{on_date}  {cfg['begin']} - {cfg['end']}")
 
     # 等待 22:00
     if need_wait:
-        log("等待至 22:00:00，请保持电脑不休眠、不要关闭本窗口 ...")
+        log_fn("等待至 22:00:00，请保持电脑不休眠、不要关闭本窗口 ...")
         while True:
             remaining = target.timestamp() - time.time()
             if remaining <= 0:
@@ -160,7 +156,7 @@ def main():
         "seatNo": 0, "teamId": 0, "theme": "", "extraField": {},
         "batchUserDto": {"classCodes": "", "depCodes": "", "usernames": ""},
     }
-    log("开始预定 ...")
+    log_fn("开始预定 ...")
 
     fails = 0
     last_msg = ""
@@ -171,29 +167,37 @@ def main():
         except requests.RequestException as e:
             fails += 1
             last_msg = f"网络异常：{e}"
-            log(f"第 {fails}/{MAX_FAILS} 次失败：{last_msg}")
+            log_fn(f"第 {fails}/{MAX_FAILS} 次失败：{last_msg}")
             time.sleep(RETRY_INTERVAL)
             continue
         except ValueError:
             fails += 1
             last_msg = f"服务器返回内容异常：HTTP {r.status_code}"
-            log(f"第 {fails}/{MAX_FAILS} 次失败：{last_msg}")
+            log_fn(f"第 {fails}/{MAX_FAILS} 次失败：{last_msg}")
             time.sleep(RETRY_INTERVAL)
             continue
 
         msg = str(d.get("message", ""))
         if d.get("status"):
-            log(f"预定成功！{msg}")
-            print("\n提示：如果不需要这个预约，请及时到网站手动取消，以免影响信用分。")
-            return
+            log_fn(f"预定成功！{msg}")
+            log_fn("提示：如果不需要这个预约，请及时手动取消，以免影响信用分。")
+            return True
 
         fails += 1
         last_msg = f"{msg}（code={d.get('code')}）"
-        log(f"第 {fails}/{MAX_FAILS} 次失败：{last_msg}")
+        log_fn(f"第 {fails}/{MAX_FAILS} 次失败：{last_msg}")
         time.sleep(RETRY_INTERVAL)
 
     raise Fatal(f"连续 {MAX_FAILS} 次失败，已停止。最后一次原因：{last_msg}\n"
                 "若中途出现过网络异常，请到网站确认是否其实已经预定成功。")
+
+
+def main():
+    if not confirm_enter():
+        print("已退出。")
+        return
+    mode = choose_date()
+    book_room(mode)
 
 
 def run():
