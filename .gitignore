@@ -1,0 +1,21 @@
+# 登录凭证与个人配置（切勿上传）
+token.txt
+cookie.txt
+secrets.json
+config.json
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# PyInstaller
+build/
+dist/
+*.spec
+
+# 其他
+*.log
+.vscode/
+.idea/
