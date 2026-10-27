@@ -71,7 +71,7 @@ gui.py（图形界面入口，内部调用下面两步）
 
 ```bash
 git clone https://github.com/jiangruiyan/Auto_Lib_Reserve.git
-cd https://github.com/jiangruiyan/Auto_Lib_Reserve.git
+cd Auto_Lib_Reserve
 
 pip install -r requirements.txt
 
